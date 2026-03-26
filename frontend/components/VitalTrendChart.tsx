@@ -1,0 +1,57 @@
+"use client";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer,
+} from "recharts";
+import { VitalTrendPoint } from "@/types";
+
+interface Props { data: VitalTrendPoint[] }
+
+const LINES = [
+  { key: "HR",    color: "#f87171", label: "HR (bpm)"    },
+  { key: "O2Sat", color: "#34d399", label: "O₂Sat (%)"   },
+  { key: "Resp",  color: "#60a5fa", label: "Resp (b/min)" },
+  { key: "SBP",   color: "#a78bfa", label: "SBP (mmHg)"  },
+];
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-xs shadow-xl">
+      <p className="text-gray-400 mb-2 font-medium">{label}</p>
+      {payload.map((p: any) => (
+        <p key={p.dataKey} style={{ color: p.color }} className="flex justify-between gap-4">
+          <span>{p.name}</span>
+          <span className="font-mono font-bold">{p.value}</span>
+        </p>
+      ))}
+    </div>
+  );
+};
+
+export default function VitalTrendChart({ data }: Props) {
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+      <h3 className="text-white font-semibold mb-4">Vital Signs Trend (Last 60 min)</h3>
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={data} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+          <XAxis dataKey="time" tick={{ fill: "#6b7280", fontSize: 10 }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} tickLine={false} axisLine={false} />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend
+            wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+            formatter={(v) => <span style={{ color: "#9ca3af" }}>{v}</span>}
+          />
+          {LINES.map(({ key, color, label }) => (
+            <Line
+              key={key} type="monotone" dataKey={key} name={label}
+              stroke={color} strokeWidth={2} dot={false}
+              activeDot={{ r: 4, strokeWidth: 0 }}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}

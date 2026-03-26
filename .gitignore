@@ -1,0 +1,68 @@
+# ── Dataset (large file, not for repo) ───────────────────────────────────────
+Dataset.csv
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# ── Node / Next.js ────────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnpm-debug.log*
+
+# ── Environment files ─────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+frontend/.env.local
+frontend/.env
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+backend.log
+frontend.log
+logs/
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Model artifact (large binary — keep or exclude based on preference) ───────
+# sepsis_model.pkl   # uncomment to exclude the model file
