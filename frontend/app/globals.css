@@ -1,6 +1,12 @@
 @import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
 
 :root {
+  --background: #f9fafb;
+  --foreground: #111827;
+}
+
+.dark {
   --background: #030712;
   --foreground: #f9fafb;
 }
@@ -10,11 +16,17 @@ body {
   color: var(--foreground);
 }
 
-/* Custom scrollbar */
+/* Scrollbar — dark */
+.dark ::-webkit-scrollbar { width: 6px; height: 6px; }
+.dark ::-webkit-scrollbar-track { background: #111827; }
+.dark ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+
+/* Scrollbar — light */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #111827; }
-::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+::-webkit-scrollbar-track { background: #e5e7eb; }
+::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #6b7280; }
 
 /* Range input */
 input[type="range"] {
@@ -23,6 +35,9 @@ input[type="range"] {
   border-radius: 4px;
   height: 4px;
 }
+.dark input[type="range"] { background: #1f2937; }
+input[type="range"] { background: #d1d5db; }
+
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 14px;

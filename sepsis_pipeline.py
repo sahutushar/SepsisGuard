@@ -45,9 +45,8 @@ def load_and_preprocess(path: str) -> pd.DataFrame:
     df = df[[c for c in cols_needed if c in df.columns]].copy()
 
     # Forward-fill within each patient, then global median fallback
-    df = df.groupby("Patient_ID", group_keys=False).apply(
-        lambda g: g.ffill().bfill()
-    )
+    df = df.groupby("Patient_ID", group_keys=False).ffill()
+    df = df.groupby("Patient_ID", group_keys=False).bfill()
     for col in FEATURES:
         if col in df.columns:
             df[col] = df[col].fillna(df[col].median())
@@ -84,7 +83,7 @@ def train_models(X_train, y_train):
     xgb = XGBClassifier(
         n_estimators=200, max_depth=6, learning_rate=0.05,
         scale_pos_weight=(y_train == 0).sum() / (y_train == 1).sum(),
-        use_label_encoder=False, eval_metric="logloss",
+        eval_metric="logloss",
         random_state=RANDOM_STATE, n_jobs=-1
     )
     rf.fit(X_train, y_train)
@@ -202,8 +201,10 @@ def main():
     xgb_metrics = evaluate("XGBoost",       xgb, X_test, y_test)
 
     # --- Select best model ---
-    best_model = rf if rf_metrics["ROC-AUC"] >= xgb_metrics["ROC-AUC"] else xgb
-    best_name  = "Random Forest" if best_model is rf else "XGBoost"
+    best_name, best_model = (
+        ("Random Forest", rf) if rf_metrics["ROC-AUC"] >= xgb_metrics["ROC-AUC"]
+        else ("XGBoost", xgb)
+    )
     print(f"\n[BEST] Best model: {best_name}  (ROC-AUC = {max(rf_metrics['ROC-AUC'], xgb_metrics['ROC-AUC']):.4f})")
 
     # --- SHAP ---

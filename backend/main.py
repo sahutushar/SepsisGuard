@@ -2,39 +2,51 @@
 Early Sepsis Risk Prediction — FastAPI Backend
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 import joblib
 import pandas as pd
-import numpy as np
 import os
+
+# ── Model state ──────────────────────────────────────────────────────────────
+MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sepsis_model.pkl")
+MODEL        = None
+SCALER       = None
+FEATURE_COLS = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global MODEL, SCALER, FEATURE_COLS
+    try:
+        artifact     = joblib.load(MODEL_PATH)
+        MODEL        = artifact["model"]
+        SCALER       = artifact["scaler"]
+        FEATURE_COLS = artifact["feature_cols"]
+        print(f"[OK] Model loaded. Features: {FEATURE_COLS}")
+    except Exception as e:
+        print(f"[WARN] Model failed to load: {e}")
+    yield
+
 
 # ── App ──────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="Sepsis Risk Prediction API",
     description="Real-time sepsis risk scoring from patient vitals",
     version="1.0.0",
+    lifespan=lifespan,
 )
+
+ALLOWED_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# ── Model loading ─────────────────────────────────────────────────────────────
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "sepsis_model.pkl")
-
-try:
-    artifact     = joblib.load(MODEL_PATH)
-    MODEL        = artifact["model"]
-    SCALER       = artifact["scaler"]
-    FEATURE_COLS = artifact["feature_cols"]
-    print(f"[OK] Model loaded. Features: {FEATURE_COLS}")
-except Exception as e:
-    raise RuntimeError(f"Failed to load model: {e}")
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 class VitalsInput(BaseModel):
@@ -45,8 +57,9 @@ class VitalsInput(BaseModel):
     MAP:   float = Field(..., ge=0,   le=200,  description="Mean Arterial Pressure (mmHg)")
     Resp:  float = Field(..., ge=0,   le=60,   description="Respiration Rate (breaths/min)")
 
-    @validator("O2Sat")
-    def o2sat_range(cls, v):
+    @field_validator("O2Sat")
+    @classmethod
+    def o2sat_range(cls, v: float) -> float:
         if v < 50:
             raise ValueError("O2Sat seems unrealistically low")
         return v
@@ -70,7 +83,6 @@ VITAL_DEFAULTS = {
     "BaseExcess": 0.0, "HCO3": 24.0, "pH": 7.4, "PaCO2": 40.0,
     "Lactate": 1.0, "WBC": 8.0, "Creatinine": 1.0, "Glucose": 100.0,
     "Potassium": 4.0, "Age": 60.0, "ICULOS": 1.0,
-    "HR_roll3": 0.0, "O2Sat_roll3": 0.0, "Resp_roll3": 0.0, "SBP_roll3": 0.0,
 }
 
 NORMAL_RANGES = {
@@ -115,17 +127,19 @@ def compute_contributors(vitals: dict) -> list[dict]:
 
 def build_feature_row(vitals: dict) -> pd.DataFrame:
     row = {**VITAL_DEFAULTS, **vitals}
-    # fill rolling features with the vital value itself (single time-step)
+    # fill rolling features with the actual vital value (single time-step has no history)
     for feat in ["HR", "O2Sat", "Resp", "SBP"]:
         roll_key = f"{feat}_roll3"
-        if roll_key in FEATURE_COLS:
-            row[roll_key] = vitals.get(feat, VITAL_DEFAULTS.get(roll_key, 0))
+        if FEATURE_COLS and roll_key in FEATURE_COLS:
+            row[roll_key] = vitals.get(feat, row.get(feat, 0))
     return pd.DataFrame([row]).reindex(columns=FEATURE_COLS, fill_value=0)
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 @app.get("/health", response_model=HealthResponse)
 def health():
+    if MODEL is None or FEATURE_COLS is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
     return {
         "status":   "ok",
         "model":    type(MODEL).__name__,
@@ -135,8 +149,10 @@ def health():
 
 @app.post("/predict", response_model=PredictionOutput)
 def predict(data: VitalsInput):
+    if MODEL is None or SCALER is None or FEATURE_COLS is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
     try:
-        vitals = data.dict()
+        vitals = data.model_dump()
         row    = build_feature_row(vitals)
         scaled = SCALER.transform(row)
         score  = float(MODEL.predict_proba(scaled)[0, 1])
